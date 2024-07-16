@@ -8,10 +8,12 @@ import (
 
 type Storages struct {
 	PingStorage PingStorage
+	UserStorage UserStorage
 }
 
 func NewPostgresStorages(db *sql.DB) (*Storages, error) {
 	return &Storages{
-		PingStorage: postgres.NewPingService(db),
+		PingStorage: postgres.NewPingStorage(db),
+		UserStorage: postgres.NewUserStorage(db),
 	}, nil
 }

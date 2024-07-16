@@ -5,14 +5,14 @@ import (
 	"database/sql"
 )
 
-type PingService struct {
+type PingStorage struct {
 	db *sql.DB
 }
 
-func NewPingService(db *sql.DB) *PingService {
-	return &PingService{db: db}
+func NewPingStorage(db *sql.DB) *PingStorage {
+	return &PingStorage{db: db}
 }
 
-func (p *PingService) PingDB(ctx context.Context) error {
+func (p *PingStorage) PingDB(ctx context.Context) error {
 	return p.db.PingContext(ctx)
 }

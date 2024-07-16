@@ -15,7 +15,7 @@ func NewPingHandler(pingStorage storage.PingStorage) *PingHandler {
 	return &PingHandler{pingStorage: pingStorage}
 }
 
-func (h *PingHandler) healthDB(w http.ResponseWriter, r *http.Request) {
+func (h *PingHandler) HealthDB(w http.ResponseWriter, r *http.Request) {
 	err := h.pingStorage.PingDB(r.Context())
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {

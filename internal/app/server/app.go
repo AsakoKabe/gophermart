@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"github.com/go-chi/jwtauth/v5"
 	"log"
 	"log/slog"
 	"net/http"
@@ -24,9 +26,11 @@ const MaxHeaderBytes = 1 << 20
 const ctxTimeout = 5 * time.Second
 
 type App struct {
+	dbPool   *sql.DB
+	storages *storage.Storages
+
 	httpServer *http.Server
-	dbPool     *sql.DB
-	storages   *storage.Storages
+	tokenAuth  *jwtauth.JWTAuth
 }
 
 func NewApp(cfg *config.Config) (*App, error) {
@@ -46,16 +50,20 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	return &App{
-		dbPool:   pool,
-		storages: storages,
+		dbPool:    pool,
+		storages:  storages,
+		tokenAuth: jwtauth.New("HS256", []byte(cfg.AuthSecret), nil),
 	}, nil
 }
 
 func (a *App) Run(cfg *config.Config) error {
 	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
 	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
 
-	err := handlers.RegisterHTTPEndpoint(router, a.storages, cfg)
+	err := a.registerHTTPEndpoint(router)
 	if err != nil {
 		return ErrRegisterEndpoints
 	}
@@ -94,4 +102,26 @@ func (a *App) CloseDBPool() {
 	if err != nil {
 		return
 	}
+}
+
+func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
+	pingHandler := handlers.NewPingHandler(a.storages.PingStorage)
+	router.Get("/ping", pingHandler.HealthDB)
+
+	userHandler := handlers.NewUserHandler(a.storages.UserStorage, a.tokenAuth)
+	router.Route("/api/user/", func(r chi.Router) {
+		r.Post("/register", userHandler.Register)
+		r.Post("/login", userHandler.Login)
+
+		r.Group(func(r chi.Router) {
+			r.Use(jwtauth.Verifier(a.tokenAuth))
+			r.Use(jwtauth.Authenticator(a.tokenAuth))
+			r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+				_, claims, _ := jwtauth.FromContext(r.Context())
+				fmt.Println(claims)
+			})
+		})
+	})
+
+	return nil
 }
