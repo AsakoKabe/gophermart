@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
-	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
+	"github.com/AsakoKabe/gophermart/internal/app/service"
+	userService "github.com/AsakoKabe/gophermart/internal/app/service/user"
 	"github.com/go-chi/jwtauth/v5"
 	"log/slog"
 	"net/http"
@@ -12,14 +13,14 @@ import (
 )
 
 type UserHandler struct {
-	userStorage storage.UserStorage
+	userService service.UserService
 	tokenAuth   *jwtauth.JWTAuth
 }
 
 const tokenExpired = 7 * 24 * time.Hour
 
-func NewUserHandler(userStorage storage.UserStorage, tokenAuth *jwtauth.JWTAuth) *UserHandler {
-	return &UserHandler{userStorage: userStorage, tokenAuth: tokenAuth}
+func NewUserHandler(userService service.UserService, tokenAuth *jwtauth.JWTAuth) *UserHandler {
+	return &UserHandler{userService: userService, tokenAuth: tokenAuth}
 }
 
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -33,8 +34,8 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.userStorage.CreateUser(r.Context(), &user)
-	if errors.Is(err, models.LoginAlreadyExist) {
+	err = h.userService.Add(r.Context(), &user)
+	if errors.Is(err, userService.LoginAlreadyExist) {
 		slog.Error("login already existed", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusConflict)
 		return
@@ -71,7 +72,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := h.userStorage.IsUserValid(r.Context(), &user)
+	ok, err := h.userService.IsValidUser(r.Context(), &user)
 	if err != nil {
 		slog.Error("err to check exist user", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)

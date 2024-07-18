@@ -7,5 +7,5 @@ import (
 
 type UserStorage interface {
 	CreateUser(ctx context.Context, user *models.User) error
-	IsUserValid(ctx context.Context, user *models.User) (bool, error)
+	GetUserByLogin(ctx context.Context, login string) (*models.User, error)
 }

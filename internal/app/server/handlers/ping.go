@@ -2,21 +2,20 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/AsakoKabe/gophermart/internal/app/service"
 	"net/http"
-
-	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
 )
 
 type PingHandler struct {
-	pingStorage storage.PingStorage
+	pingService service.PingService
 }
 
-func NewPingHandler(pingStorage storage.PingStorage) *PingHandler {
-	return &PingHandler{pingStorage: pingStorage}
+func NewPingHandler(pingService service.PingService) *PingHandler {
+	return &PingHandler{pingService: pingService}
 }
 
 func (h *PingHandler) HealthDB(w http.ResponseWriter, r *http.Request) {
-	err := h.pingStorage.PingDB(r.Context())
+	err := h.pingService.PingDB(r.Context())
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")

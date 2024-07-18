@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/AsakoKabe/gophermart/internal/app/service"
 	"github.com/go-chi/jwtauth/v5"
 	"log"
 	"log/slog"
@@ -27,7 +28,7 @@ const ctxTimeout = 5 * time.Second
 
 type App struct {
 	dbPool   *sql.DB
-	storages *storage.Storages
+	services *service.Services
 
 	httpServer *http.Server
 	tokenAuth  *jwtauth.JWTAuth
@@ -51,7 +52,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	return &App{
 		dbPool:    pool,
-		storages:  storages,
+		services:  service.NewServices(storages),
 		tokenAuth: jwtauth.New("HS256", []byte(cfg.AuthSecret), nil),
 	}, nil
 }
@@ -105,10 +106,11 @@ func (a *App) CloseDBPool() {
 }
 
 func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
-	pingHandler := handlers.NewPingHandler(a.storages.PingStorage)
+	pingHandler := handlers.NewPingHandler(a.services.PingService)
 	router.Get("/ping", pingHandler.HealthDB)
 
-	userHandler := handlers.NewUserHandler(a.storages.UserStorage, a.tokenAuth)
+	userHandler := handlers.NewUserHandler(a.services.UserService, a.tokenAuth)
+	//orderHandler := handlers.NewOrderHandler(a.storages.OrderStorage)
 	router.Route("/api/user/", func(r chi.Router) {
 		r.Post("/register", userHandler.Register)
 		r.Post("/login", userHandler.Login)
@@ -120,6 +122,8 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
 				_, claims, _ := jwtauth.FromContext(r.Context())
 				fmt.Println(claims)
 			})
+
+			//r.Post("/orders", orderHandler.Add)
 		})
 	})
 
