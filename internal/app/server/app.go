@@ -110,7 +110,7 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
 	router.Get("/ping", pingHandler.HealthDB)
 
 	userHandler := handlers.NewUserHandler(a.services.UserService, a.tokenAuth)
-	//orderHandler := handlers.NewOrderHandler(a.storages.OrderStorage)
+	orderHandler := handlers.NewOrderHandler(a.services.OrderService)
 	router.Route("/api/user/", func(r chi.Router) {
 		r.Post("/register", userHandler.Register)
 		r.Post("/login", userHandler.Login)
@@ -123,7 +123,7 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
 				fmt.Println(claims)
 			})
 
-			//r.Post("/orders", orderHandler.Add)
+			r.Post("/orders", orderHandler.Add)
 		})
 	})
 

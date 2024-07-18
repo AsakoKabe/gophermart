@@ -18,6 +18,7 @@ type UserHandler struct {
 }
 
 const tokenExpired = 7 * 24 * time.Hour
+const tokenKey = "login"
 
 func NewUserHandler(userService service.UserService, tokenAuth *jwtauth.JWTAuth) *UserHandler {
 	return &UserHandler{userService: userService, tokenAuth: tokenAuth}
