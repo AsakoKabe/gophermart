@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/AsakoKabe/gophermart/config"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
 	"github.com/AsakoKabe/gophermart/internal/app/service/order"
 	"github.com/AsakoKabe/gophermart/internal/app/service/ping"
@@ -13,10 +14,14 @@ type Services struct {
 	OrderService OrderService
 }
 
-func NewServices(storages *storage.Storages) *Services {
+func NewServices(storages *storage.Storages, cfg *config.Config) *Services {
 	return &Services{
-		UserService:  user.NewService(storages.UserStorage),
-		PingService:  ping.NewService(storages.PingStorage),
-		OrderService: order.NewService(storages.OrderStorage, storages.UserStorage),
+		UserService: user.NewService(storages.UserStorage),
+		PingService: ping.NewService(storages.PingStorage),
+		OrderService: order.NewService(
+			storages.OrderStorage,
+			storages.UserStorage,
+			cfg.AccrualSystemAddress,
+		),
 	}
 }

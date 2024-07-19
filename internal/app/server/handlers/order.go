@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/AsakoKabe/gophermart/internal/app/service"
 	"github.com/AsakoKabe/gophermart/internal/app/service/order"
@@ -56,6 +57,37 @@ func (h *OrderHandler) Add(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	}
 
+}
+
+func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
+	_, claims, _ := jwtauth.FromContext(r.Context())
+	userLogin := claims[tokenKey].(string)
+
+	orders, err := h.orderService.GetOrders(r.Context(), userLogin)
+	if err != nil {
+		slog.Error("error to get orders", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	ordersAccrual, err := h.orderService.AddAccrualToOrders(r.Context(), orders)
+	if err != nil {
+		slog.Error("error to get orders with accrual", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if len(*ordersAccrual) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(ordersAccrual)
+	if err != nil {
+		slog.Error("error to create response get orders", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func readBody(reqBody io.ReadCloser) (string, error) {

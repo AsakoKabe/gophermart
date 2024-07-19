@@ -52,7 +52,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	return &App{
 		dbPool:    pool,
-		services:  service.NewServices(storages),
+		services:  service.NewServices(storages, cfg),
 		tokenAuth: jwtauth.New("HS256", []byte(cfg.AuthSecret), nil),
 	}, nil
 }
@@ -124,6 +124,7 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
 			})
 
 			r.Post("/orders", orderHandler.Add)
+			r.Get("/orders", orderHandler.Get)
 		})
 	})
 

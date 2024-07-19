@@ -17,7 +17,8 @@ func NewOrderStorage(db *sql.DB) *OrderStorage {
 }
 
 const insertOrder = "insert into orders (num, user_id) values ($1, $2)"
-const selectOrder = "select * from orders where num = $1"
+const selectOrderByNum = "select id, num, user_id, trim('\"' from to_json(uploaded_at)::text) from orders where num = $1"
+const selectOrdersByUserID = "select id, num, user_id, trim('\"' from to_json(uploaded_at)::text) from orders where user_id = $1 order by uploaded_at"
 
 func (s *OrderStorage) Add(ctx context.Context, order *models.Order) error {
 	_, err := s.db.ExecContext(ctx, insertOrder, order.Num, order.UserID)
@@ -31,7 +32,7 @@ func (s *OrderStorage) Add(ctx context.Context, order *models.Order) error {
 func (s *OrderStorage) GetOrderByNum(ctx context.Context, num int) (*models.Order, error) {
 	rows, err := s.db.QueryContext(
 		ctx,
-		selectOrder,
+		selectOrderByNum,
 		num,
 	)
 	if err != nil {
@@ -39,6 +40,9 @@ func (s *OrderStorage) GetOrderByNum(ctx context.Context, num int) (*models.Orde
 		return nil, err
 	}
 	defer rows.Close()
+	if !rows.Next() {
+		return nil, nil
+	}
 
 	order, err := s.parseOrder(rows)
 	if err != nil {
@@ -50,14 +54,34 @@ func (s *OrderStorage) GetOrderByNum(ctx context.Context, num int) (*models.Orde
 }
 
 func (s *OrderStorage) parseOrder(rows *sql.Rows) (*models.Order, error) {
-	if !rows.Next() {
-		return nil, nil
-	}
 	var order models.Order
-	if err := rows.Scan(&order.ID, &order.Num, &order.UserID); err != nil {
+	if err := rows.Scan(&order.ID, &order.Num, &order.UserID, &order.UploadedAt); err != nil {
 		slog.Error("error parse order from db", slog.String("err", err.Error()))
 		return nil, err
 	}
 
 	return &order, nil
+}
+
+func (s *OrderStorage) GetOrdersByUserIDSortedByUpdatedAt(ctx context.Context, userID string) (*[]models.Order, error) {
+	rows, err := s.db.QueryContext(
+		ctx,
+		selectOrdersByUserID,
+		userID,
+	)
+	if err != nil {
+		slog.Error("error select order by userID", slog.String("err", err.Error()))
+		return nil, err
+	}
+	defer rows.Close()
+	var orders []models.Order
+	for rows.Next() {
+		order, err := s.parseOrder(rows)
+		if err != nil {
+			continue
+		}
+		orders = append(orders, *order)
+	}
+
+	return &orders, nil
 }
