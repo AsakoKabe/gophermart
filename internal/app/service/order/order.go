@@ -93,9 +93,9 @@ func (s *Service) GetOrders(ctx context.Context, userLogin string) (*[]models.Or
 }
 
 type AccrualResponse struct {
-	Order   string `json:"order"`
-	Status  string `json:"status"`
-	Accrual int    `json:"accrual"`
+	Order   string  `json:"order"`
+	Status  string  `json:"status"`
+	Accrual float64 `json:"accrual"`
 }
 
 func (s *Service) AddAccrualToOrders(
