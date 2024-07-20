@@ -39,6 +39,7 @@ var ErrNotRegisterOrderAccrual = errors.New("order isnt registered in accrual")
 var ErrUnexpectedStatusCode = errors.New("unexpected status code in accrual")
 
 const accrualURI = "/api/orders/"
+const accrualNEWStatus = "NEW"
 
 func (s *Service) Add(ctx context.Context, numOrder string, userLogin string) error {
 	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
@@ -119,12 +120,6 @@ func (s *Service) AddAccrualToOrders(
 					slog.String("orderNum", order.Num),
 				)
 				continue
-			case errors.Is(err, ErrNotRegisterOrderAccrual):
-				slog.Info(
-					err.Error(),
-					slog.String("orderNum", order.Num),
-				)
-				continue
 			default:
 				slog.Error(
 					"error to get accrualResponse for order",
@@ -161,7 +156,8 @@ func (s *Service) sendAccrualResponse(orderNum string) (*AccrualResponse, error)
 	case http.StatusUnprocessableEntity:
 		return nil, ErrTooManyRequestsAccrual
 	case http.StatusNoContent:
-		return nil, ErrNotRegisterOrderAccrual
+		accrualResponse.Status = accrualNEWStatus
+		return &accrualResponse, nil
 	case http.StatusInternalServerError:
 		return nil, err
 	case http.StatusOK:
