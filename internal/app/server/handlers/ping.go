@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/AsakoKabe/gophermart/internal/app/service"
 	"net/http"
+
+	"github.com/AsakoKabe/gophermart/internal/app/service"
 )
 
 type PingHandler struct {

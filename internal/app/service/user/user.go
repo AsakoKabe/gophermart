@@ -3,9 +3,10 @@ package user
 import (
 	"context"
 	"errors"
+	"log/slog"
+
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
-	"log/slog"
 )
 
 type Service struct {
@@ -16,7 +17,7 @@ func NewService(userStorage storage.UserStorage) *Service {
 	return &Service{userStorage: userStorage}
 }
 
-var LoginAlreadyExist = errors.New("user login already exist")
+var ErrLoginAlreadyExist = errors.New("user login already exist")
 
 func (s *Service) Add(ctx context.Context, user *models.User) error {
 	existedUser, err := s.userStorage.GetUserByLogin(ctx, user.Login)
@@ -25,7 +26,7 @@ func (s *Service) Add(ctx context.Context, user *models.User) error {
 	}
 
 	if existedUser != nil {
-		return LoginAlreadyExist
+		return ErrLoginAlreadyExist
 	}
 
 	err = s.userStorage.CreateUser(ctx, user)

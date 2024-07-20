@@ -3,13 +3,15 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/AsakoKabe/gophermart/internal/app/db/models"
-	"github.com/AsakoKabe/gophermart/internal/app/service"
-	userService "github.com/AsakoKabe/gophermart/internal/app/service/user"
-	"github.com/go-chi/jwtauth/v5"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/jwtauth/v5"
+
+	"github.com/AsakoKabe/gophermart/internal/app/db/models"
+	"github.com/AsakoKabe/gophermart/internal/app/service"
+	userService "github.com/AsakoKabe/gophermart/internal/app/service/user"
 )
 
 type UserHandler struct {
@@ -36,7 +38,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.userService.Add(r.Context(), &user)
-	if errors.Is(err, userService.LoginAlreadyExist) {
+	if errors.Is(err, userService.ErrLoginAlreadyExist) {
 		slog.Error("login already existed", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusConflict)
 		return

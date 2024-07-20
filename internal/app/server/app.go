@@ -3,9 +3,6 @@ package server
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"github.com/AsakoKabe/gophermart/internal/app/service"
-	"github.com/go-chi/jwtauth/v5"
 	"log"
 	"log/slog"
 	"net/http"
@@ -15,11 +12,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/jwtauth/v5"
 
 	"github.com/AsakoKabe/gophermart/config"
 	"github.com/AsakoKabe/gophermart/internal/app/db/connection"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
 	"github.com/AsakoKabe/gophermart/internal/app/server/handlers"
+	"github.com/AsakoKabe/gophermart/internal/app/service"
 )
 
 const httpTimeOut = 10 * time.Second
@@ -64,10 +63,7 @@ func (a *App) Run(cfg *config.Config) error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
-	err := a.registerHTTPEndpoint(router)
-	if err != nil {
-		return ErrRegisterEndpoints
-	}
+	a.registerHTTPEndpoint(router)
 
 	a.httpServer = &http.Server{
 		Addr:           cfg.Addr,
@@ -78,7 +74,7 @@ func (a *App) Run(cfg *config.Config) error {
 	}
 
 	go func() {
-		err = a.httpServer.ListenAndServe()
+		err := a.httpServer.ListenAndServe()
 		if err != nil {
 			log.Fatalf("Failed to listen and serve: %+v", err)
 		}
@@ -105,7 +101,7 @@ func (a *App) CloseDBPool() {
 	}
 }
 
-func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
+func (a *App) registerHTTPEndpoint(router *chi.Mux) {
 	pingHandler := handlers.NewPingHandler(a.services.PingService)
 	router.Get("/ping", pingHandler.HealthDB)
 
@@ -118,15 +114,8 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) error {
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(a.tokenAuth))
 			r.Use(jwtauth.Authenticator(a.tokenAuth))
-			r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
-				_, claims, _ := jwtauth.FromContext(r.Context())
-				fmt.Println(claims)
-			})
-
 			r.Post("/orders", orderHandler.Add)
 			r.Get("/orders", orderHandler.Get)
 		})
 	})
-
-	return nil
 }

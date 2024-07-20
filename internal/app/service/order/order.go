@@ -3,12 +3,14 @@ package order
 import (
 	"context"
 	"errors"
-	"github.com/AsakoKabe/gophermart/internal/app/db/models"
-	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
-	"github.com/go-resty/resty/v2"
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"github.com/go-resty/resty/v2"
+
+	"github.com/AsakoKabe/gophermart/internal/app/db/models"
+	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
 )
 
 type Service struct {
@@ -31,11 +33,12 @@ func NewService(
 	}
 }
 
-var AlreadyAddedOtherUser = errors.New("order already added other user")
-var AlreadyAdded = errors.New("order already added")
-var BadFormat = errors.New("bad format num order")
-var TooManyRequestsAccrual = errors.New("too many request in accrual service")
-var NotRegisterOrderAccrual = errors.New("order isnt registered in accrual")
+var ErrAlreadyAddedOtherUser = errors.New("order already added other user")
+var ErrAlreadyAdded = errors.New("order already added")
+var ErrBadFormat = errors.New("bad format num order")
+var ErrTooManyRequestsAccrual = errors.New("too many request in accrual service")
+var ErrNotRegisterOrderAccrual = errors.New("order isnt registered in accrual")
+var ErrUnexpectedStatusCode = errors.New("unexpected status code in accrual")
 
 const accrualURI = "/api/orders/"
 
@@ -52,9 +55,9 @@ func (s *Service) Add(ctx context.Context, numOrder int, userLogin string) error
 	existedOrder, err := s.orderStorage.GetOrderByNum(ctx, numOrder)
 	if existedOrder != nil {
 		if existedOrder.UserID != user.ID {
-			return AlreadyAddedOtherUser
+			return ErrAlreadyAddedOtherUser
 		}
-		return AlreadyAdded
+		return ErrAlreadyAdded
 	}
 	if err != nil {
 		slog.Error("error to select order", slog.String("err", err.Error()))
@@ -105,25 +108,28 @@ func (s *Service) AddAccrualToOrders(
 
 	for _, order := range *orders {
 		accrualResponse, err := s.sendAccrualResponse(order.Num)
-		if errors.Is(err, TooManyRequestsAccrual) {
-			slog.Info(
-				err.Error(),
-				slog.Int("orderNum", order.Num),
-			)
-			continue
-		} else if errors.Is(err, NotRegisterOrderAccrual) {
-			slog.Info(
-				err.Error(),
-				slog.Int("orderNum", order.Num),
-			)
-			continue
-		} else if err != nil {
-			slog.Error(
-				"error to get accrualResponse for order",
-				slog.Int("order num", order.Num),
-				slog.String("err", err.Error()),
-			)
-			continue
+		if err != nil {
+			switch {
+			case errors.Is(err, ErrTooManyRequestsAccrual):
+				slog.Info(
+					err.Error(),
+					slog.Int("orderNum", order.Num),
+				)
+				continue
+			case errors.Is(err, ErrNotRegisterOrderAccrual):
+				slog.Info(
+					err.Error(),
+					slog.Int("orderNum", order.Num),
+				)
+				continue
+			default:
+				slog.Error(
+					"error to get accrualResponse for order",
+					slog.Int("order num", order.Num),
+					slog.String("err", err.Error()),
+				)
+				continue
+			}
 		}
 
 		ordersAccrual = append(ordersAccrual, models.OrderWithAccrual{
@@ -150,15 +156,14 @@ func (s *Service) sendAccrualResponse(orderNum int) (*AccrualResponse, error) {
 
 	switch resp.StatusCode() {
 	case http.StatusUnprocessableEntity:
-		return nil, TooManyRequestsAccrual
+		return nil, ErrTooManyRequestsAccrual
 	case http.StatusNoContent:
-		return nil, NotRegisterOrderAccrual
+		return nil, ErrNotRegisterOrderAccrual
 	case http.StatusInternalServerError:
 		return nil, err
 	case http.StatusOK:
 		return &accrualResponse, nil
 	}
 
-	return nil, nil
-
+	return nil, ErrUnexpectedStatusCode
 }

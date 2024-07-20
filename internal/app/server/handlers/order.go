@@ -3,14 +3,16 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/AsakoKabe/gophermart/internal/app/service"
-	"github.com/AsakoKabe/gophermart/internal/app/service/order"
-	"github.com/go-chi/jwtauth/v5"
 	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/jwtauth/v5"
+
+	"github.com/AsakoKabe/gophermart/internal/app/service"
+	"github.com/AsakoKabe/gophermart/internal/app/service/order"
 )
 
 type OrderHandler struct {
@@ -41,27 +43,39 @@ func (h *OrderHandler) Add(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, claims, _ := jwtauth.FromContext(r.Context())
-	userLogin := claims[tokenKey].(string)
+	userLogin, ok := claims[tokenKey].(string)
+	if !ok {
+		slog.Error("error to get user login")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	err = h.orderService.Add(r.Context(), num, userLogin)
-	if errors.Is(err, order.AlreadyAddedOtherUser) {
-		w.WriteHeader(http.StatusConflict)
-	} else if errors.Is(err, order.AlreadyAdded) {
-		w.WriteHeader(http.StatusOK)
-	} else if errors.Is(err, order.BadFormat) {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-	} else if err != nil {
-		slog.Error("error to add order", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
+	if err != nil {
+		switch {
+		case errors.Is(err, order.ErrAlreadyAddedOtherUser):
+			w.WriteHeader(http.StatusConflict)
+		case errors.Is(err, order.ErrAlreadyAdded):
+			w.WriteHeader(http.StatusOK)
+		case errors.Is(err, order.ErrBadFormat):
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		default:
+			slog.Error("error to add order", slog.String("err", err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
-
 }
 
 func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 	_, claims, _ := jwtauth.FromContext(r.Context())
-	userLogin := claims[tokenKey].(string)
+	userLogin, ok := claims[tokenKey].(string)
+	if !ok {
+		slog.Error("error to get user login")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	orders, err := h.orderService.GetOrders(r.Context(), userLogin)
 	if err != nil {

@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"log/slog"
+
+	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 )
 
 type UserStorage struct {
@@ -39,7 +40,9 @@ func (u *UserStorage) GetUserByLogin(ctx context.Context, login string) (*models
 		return nil, err
 	}
 	defer rows.Close()
-
+	if !rows.Next() {
+		return nil, nil
+	}
 	user, err := u.parseUser(rows)
 	if err != nil {
 		slog.Error("error to parse user", slog.String("err", err.Error()))
@@ -50,9 +53,6 @@ func (u *UserStorage) GetUserByLogin(ctx context.Context, login string) (*models
 }
 
 func (u *UserStorage) parseUser(rows *sql.Rows) (*models.User, error) {
-	if !rows.Next() {
-		return nil, nil
-	}
 	var user models.User
 	if err := rows.Scan(&user.ID, &user.Login, &user.Password); err != nil {
 		slog.Error("error parse user from db", slog.String("err", err.Error()))

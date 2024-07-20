@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"log/slog"
+
+	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 )
 
 type OrderStorage struct {
@@ -75,9 +76,10 @@ func (s *OrderStorage) GetOrdersByUserIDSortedByUpdatedAt(ctx context.Context, u
 	}
 	defer rows.Close()
 	var orders []models.Order
+
 	for rows.Next() {
-		order, err := s.parseOrder(rows)
-		if err != nil {
+		order, errParse := s.parseOrder(rows)
+		if errParse != nil {
 			continue
 		}
 		orders = append(orders, *order)
