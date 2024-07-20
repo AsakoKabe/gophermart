@@ -3,13 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"github.com/go-chi/jwtauth/v5"
 	"io"
 	"log"
 	"log/slog"
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/jwtauth/v5"
 
 	"github.com/AsakoKabe/gophermart/internal/app/service"
 	"github.com/AsakoKabe/gophermart/internal/app/service/order"
@@ -25,19 +23,9 @@ func NewOrderHandler(orderService service.OrderService) *OrderHandler {
 
 func (h *OrderHandler) Add(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	numOrder, err := readBody(r.Body)
+	orderNum, err := readBody(r.Body)
 	if err != nil {
 		slog.Error("error to read body")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	num, err := strconv.Atoi(numOrder)
-	if err != nil {
-		slog.Error(
-			"error with type num order",
-			slog.String("num order", numOrder),
-			slog.String("err", err.Error()),
-		)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -50,7 +38,7 @@ func (h *OrderHandler) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.orderService.Add(r.Context(), num, userLogin)
+	err = h.orderService.Add(r.Context(), orderNum, userLogin)
 	if err != nil {
 		switch {
 		case errors.Is(err, order.ErrAlreadyAddedOtherUser):
@@ -90,12 +78,12 @@ func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	if len(*ordersAccrual) == 0 {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(ordersAccrual)
 	if err != nil {
 		slog.Error("error to create response get orders", slog.String("err", err.Error()))

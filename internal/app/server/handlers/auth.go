@@ -3,11 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"github.com/go-chi/jwtauth/v5"
 	"log/slog"
 	"net/http"
-	"time"
-
-	"github.com/go-chi/jwtauth/v5"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/service"
@@ -19,7 +17,6 @@ type UserHandler struct {
 	tokenAuth   *jwtauth.JWTAuth
 }
 
-const tokenExpired = 7 * 24 * time.Hour
 const tokenKey = "login"
 
 func NewUserHandler(userService service.UserService, tokenAuth *jwtauth.JWTAuth) *UserHandler {
@@ -52,11 +49,6 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	token := h.makeToken(user.Login)
 
 	http.SetCookie(w, &http.Cookie{
-		HttpOnly: true,
-		Expires:  time.Now().Add(tokenExpired),
-		SameSite: http.SameSiteLaxMode,
-		// Uncomment below for HTTPS:
-		// Secure: true,
 		Name:  "jwt", // Must be named "jwt" or else the token cannot be searched for by jwtauth.Verifier.
 		Value: token,
 	})
@@ -90,11 +82,6 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token := h.makeToken(user.Login)
 
 	http.SetCookie(w, &http.Cookie{
-		HttpOnly: true,
-		Expires:  time.Now().Add(tokenExpired),
-		SameSite: http.SameSiteLaxMode,
-		// Uncomment below for HTTPS:
-		// Secure: true,
 		Name:  "jwt", // Must be named "jwt" or else the token cannot be searched for by jwtauth.Verifier.
 		Value: token,
 	})

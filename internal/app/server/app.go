@@ -10,15 +10,14 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/jwtauth/v5"
-
 	"github.com/AsakoKabe/gophermart/config"
 	"github.com/AsakoKabe/gophermart/internal/app/db/connection"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
 	"github.com/AsakoKabe/gophermart/internal/app/server/handlers"
 	"github.com/AsakoKabe/gophermart/internal/app/service"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/jwtauth/v5"
 )
 
 const httpTimeOut = 10 * time.Second
@@ -43,6 +42,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, ErrCreateDBPoll
 	}
 
+	err = connection.RunMigrations(cfg.DatabaseURI)
+	if err != nil {
+		slog.Error("error to migrate db", slog.String("err", err.Error()))
+		return nil, err
+	}
+
 	storages, err := storage.NewPostgresStorages(pool)
 	if err != nil {
 		slog.Error("error to create service", slog.String("err", err.Error()))
@@ -59,7 +64,6 @@ func NewApp(cfg *config.Config) (*App, error) {
 func (a *App) Run(cfg *config.Config) error {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 

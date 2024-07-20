@@ -3,11 +3,9 @@ package order
 import (
 	"context"
 	"errors"
+	"github.com/go-resty/resty/v2"
 	"log/slog"
 	"net/http"
-	"strconv"
-
-	"github.com/go-resty/resty/v2"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
@@ -42,7 +40,7 @@ var ErrUnexpectedStatusCode = errors.New("unexpected status code in accrual")
 
 const accrualURI = "/api/orders/"
 
-func (s *Service) Add(ctx context.Context, numOrder int, userLogin string) error {
+func (s *Service) Add(ctx context.Context, numOrder string, userLogin string) error {
 	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
 	if err != nil {
 		slog.Error("error to get user for add order",
@@ -113,19 +111,19 @@ func (s *Service) AddAccrualToOrders(
 			case errors.Is(err, ErrTooManyRequestsAccrual):
 				slog.Info(
 					err.Error(),
-					slog.Int("orderNum", order.Num),
+					slog.String("orderNum", order.Num),
 				)
 				continue
 			case errors.Is(err, ErrNotRegisterOrderAccrual):
 				slog.Info(
 					err.Error(),
-					slog.Int("orderNum", order.Num),
+					slog.String("orderNum", order.Num),
 				)
 				continue
 			default:
 				slog.Error(
 					"error to get accrualResponse for order",
-					slog.Int("order num", order.Num),
+					slog.String("order num", order.Num),
 					slog.String("err", err.Error()),
 				)
 				continue
@@ -133,7 +131,7 @@ func (s *Service) AddAccrualToOrders(
 		}
 
 		ordersAccrual = append(ordersAccrual, models.OrderWithAccrual{
-			Number:     strconv.Itoa(order.Num),
+			Number:     order.Num,
 			Status:     accrualResponse.Status,
 			Accrual:    accrualResponse.Accrual,
 			UploadedAt: order.UploadedAt,
@@ -143,12 +141,12 @@ func (s *Service) AddAccrualToOrders(
 	return &ordersAccrual, nil
 }
 
-func (s *Service) sendAccrualResponse(orderNum int) (*AccrualResponse, error) {
+func (s *Service) sendAccrualResponse(orderNum string) (*AccrualResponse, error) {
 	var accrualResponse AccrualResponse
 	resp, err := s.httpClient.R().
 		SetResult(&accrualResponse).
 		ForceContentType("application/json").
-		Get(s.accrualURI + accrualURI + strconv.Itoa(orderNum))
+		Get(s.accrualURI + accrualURI + orderNum)
 
 	if err != nil {
 		return nil, err

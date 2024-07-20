@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"github.com/AsakoKabe/gophermart/internal/app/db/storage/postgres"
 	"log/slog"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
@@ -21,7 +22,7 @@ var ErrLoginAlreadyExist = errors.New("user login already exist")
 
 func (s *Service) Add(ctx context.Context, user *models.User) error {
 	existedUser, err := s.userStorage.GetUserByLogin(ctx, user.Login)
-	if err != nil {
+	if err != nil && !errors.Is(err, postgres.ErrUserNotExist) {
 		return err
 	}
 

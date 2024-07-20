@@ -30,7 +30,7 @@ func (s *OrderStorage) Add(ctx context.Context, order *models.Order) error {
 	return nil
 }
 
-func (s *OrderStorage) GetOrderByNum(ctx context.Context, num int) (*models.Order, error) {
+func (s *OrderStorage) GetOrderByNum(ctx context.Context, num string) (*models.Order, error) {
 	rows, err := s.db.QueryContext(
 		ctx,
 		selectOrderByNum,

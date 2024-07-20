@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -19,6 +20,8 @@ func NewUserStorage(db *sql.DB) *UserStorage {
 
 const insertUser = "insert into users (login, password) values ($1, $2)"
 const selectUser = "select * from users where login = $1"
+
+var ErrUserNotExist = errors.New("user not exist")
 
 func (u *UserStorage) CreateUser(ctx context.Context, user *models.User) error {
 	_, err := u.db.ExecContext(ctx, insertUser, user.Login, user.Password)
@@ -41,7 +44,7 @@ func (u *UserStorage) GetUserByLogin(ctx context.Context, login string) (*models
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return nil, nil
+		return nil, ErrUserNotExist
 	}
 	user, err := u.parseUser(rows)
 	if err != nil {
