@@ -127,6 +127,7 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) {
 			r.Get("/orders", orderHandler.Get)
 			r.Get("/balance", userHandler.GetBalance)
 			r.Post("/balance/withdraw", withdrawalHandler.Add)
+			r.Get("/withdrawals", withdrawalHandler.Get)
 		})
 	})
 }

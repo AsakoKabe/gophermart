@@ -19,6 +19,7 @@ func NewWithdrawalStorage(db *sql.DB) *WithdrawalStorage {
 
 const insertWithdrawal = "insert into withdrawals (num_order, sum, user_id) VALUES ($1, $2, $3)"
 const selectSumByUser = "select sum(sum) from withdrawals where user_id = $1"
+const selectAllByUserID = "select num_order, sum, trim('\"' from to_json(processed_at)::text) from withdrawals where user_id = $1 order by processed_at"
 
 func (s *WithdrawalStorage) Add(ctx context.Context, withdrawal *models.Withdrawal) error {
 	_, err := s.db.ExecContext(ctx, insertWithdrawal, withdrawal.OrderNum, withdrawal.Sum, withdrawal.UserID)
@@ -56,4 +57,38 @@ func (s *WithdrawalStorage) GetSum(ctx context.Context, userID string) (float64,
 	}
 
 	return 0, nil
+}
+
+func (s *WithdrawalStorage) GetAll(ctx context.Context, userID string) (*[]models.Withdrawal, error) {
+	rows, err := s.db.QueryContext(
+		ctx,
+		selectAllByUserID,
+		userID,
+	)
+	if err != nil {
+		slog.Error("error select withdrawals by userID", slog.String("err", err.Error()))
+		return nil, err
+	}
+	defer rows.Close()
+	var withdrawals []models.Withdrawal
+
+	for rows.Next() {
+		withdrawal, errParse := s.parseWithdrawal(rows)
+		if errParse != nil {
+			continue
+		}
+		withdrawals = append(withdrawals, *withdrawal)
+	}
+
+	return &withdrawals, nil
+}
+
+func (s *WithdrawalStorage) parseWithdrawal(rows *sql.Rows) (*models.Withdrawal, error) {
+	var withdrawal models.Withdrawal
+	if err := rows.Scan(&withdrawal.OrderNum, &withdrawal.Sum, &withdrawal.ProcessedAt); err != nil {
+		slog.Error("error parse withdrawal from db", slog.String("err", err.Error()))
+		return nil, err
+	}
+
+	return &withdrawal, nil
 }

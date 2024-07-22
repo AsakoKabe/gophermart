@@ -87,3 +87,39 @@ func (h *WithdrawalHandler) Add(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *WithdrawalHandler) Get(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	_, claims, _ := jwtauth.FromContext(r.Context())
+	userLogin, ok := claims[tokenKey].(string)
+	if !ok {
+		slog.Error("error to get user login")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	withdrawals, err := h.withdrawalService.GetAll(r.Context(), userLogin)
+	if err != nil {
+		slog.Error(
+			"error to get withdrawals",
+			slog.String("userLogin", userLogin),
+			slog.String("err", err.Error()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	if len(*withdrawals) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(withdrawals)
+	if err != nil {
+		slog.Error("error to create response get withdrawals", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusOK)
+}
