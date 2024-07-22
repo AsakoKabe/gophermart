@@ -3,9 +3,10 @@ package order
 import (
 	"context"
 	"errors"
-	"github.com/go-resty/resty/v2"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-resty/resty/v2"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
@@ -116,12 +117,13 @@ func (s *Service) GetOrdersWithAccrual(
 	var ordersAccrual []models.OrderWithAccrual
 
 	for _, order := range *orders {
-		accrualResponse, err := s.sendAccrualResponse(order.Num)
-		if err != nil {
+		var errResponse error
+		accrualResponse, errResponse := s.sendAccrualResponse(order.Num)
+		if errResponse != nil {
 			switch {
-			case errors.Is(err, ErrTooManyRequestsAccrual):
-				slog.Info(
-					err.Error(),
+			case errors.Is(errResponse, ErrTooManyRequestsAccrual):
+				slog.Error(
+					errResponse.Error(),
 					slog.String("orderNum", order.Num),
 				)
 				continue
@@ -129,7 +131,7 @@ func (s *Service) GetOrdersWithAccrual(
 				slog.Error(
 					"error to get accrualResponse for order",
 					slog.String("order num", order.Num),
-					slog.String("err", err.Error()),
+					slog.String("err", errResponse.Error()),
 				)
 				continue
 			}
@@ -193,7 +195,7 @@ func luhnAlgorithm(cardNumber string) bool {
 			digit *= 2
 			if digit > 9 {
 				// If doubling the digit results in a two-digit number,
-				//subtract 9 to get the sum of digits.
+				// subtract 9 to get the sum of digits.
 				digit -= 9
 			}
 		}
@@ -201,7 +203,7 @@ func luhnAlgorithm(cardNumber string) bool {
 		// Add the current digit to the total sum
 		total += digit
 
-		//Toggle the flag for the next iteration.
+		// Toggle the flag for the next iteration.
 		isSecondDigit = !isSecondDigit
 	}
 

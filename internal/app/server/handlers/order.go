@@ -3,11 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/go-chi/jwtauth/v5"
 	"io"
 	"log"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/jwtauth/v5"
 
 	"github.com/AsakoKabe/gophermart/internal/app/service"
 	"github.com/AsakoKabe/gophermart/internal/app/service/order"

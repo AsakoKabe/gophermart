@@ -3,9 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/go-chi/jwtauth/v5"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/jwtauth/v5"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/service"
@@ -124,6 +125,7 @@ func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 
 	res := balanceResponse{Current: balance - withdrawal, Withdrawn: withdrawal}
 	err = json.NewEncoder(w).Encode(res)
@@ -132,5 +134,4 @@ func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.WriteHeader(http.StatusOK)
-
 }

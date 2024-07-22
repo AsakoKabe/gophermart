@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"log/slog"
+
+	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 )
 
 type WithdrawalStorage struct {
@@ -39,13 +40,15 @@ func (s *WithdrawalStorage) GetSum(ctx context.Context, userID string) (float64,
 		return 0, err
 	}
 	defer rows.Close()
-	if !rows.Next() {
-		return 0, err
-	}
+	rows.Next()
 
 	var sum sql.NullFloat64
 	if err = rows.Scan(&sum); err != nil {
 		slog.Error("error parse sum withdrawal from db", slog.String("err", err.Error()))
+		return 0, err
+	}
+	if err = rows.Err(); err != nil {
+		slog.Error("error to scan")
 		return 0, err
 	}
 	if sum.Valid {

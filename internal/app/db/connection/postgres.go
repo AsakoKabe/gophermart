@@ -2,13 +2,14 @@ package connection
 
 import (
 	"database/sql"
+	"log"
+
 	"github.com/AsakoKabe/gophermart/internal/app/db"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/lib/pq"
-	"log"
 )
 
 func NewDBPool(dsn string) (*sql.DB, error) {

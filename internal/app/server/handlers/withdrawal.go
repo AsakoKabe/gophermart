@@ -3,10 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/AsakoKabe/gophermart/internal/app/service/order"
-	"github.com/go-chi/jwtauth/v5"
 	"log/slog"
 	"net/http"
+
+	"github.com/AsakoKabe/gophermart/internal/app/service/order"
+	"github.com/go-chi/jwtauth/v5"
 
 	"github.com/AsakoKabe/gophermart/internal/app/service"
 )
@@ -42,7 +43,7 @@ func (h *WithdrawalHandler) Add(w http.ResponseWriter, r *http.Request) {
 	_, claims, _ := jwtauth.FromContext(r.Context())
 	userLogin, ok := claims[tokenKey].(string)
 	if !ok {
-		slog.Error("error to get user login", slog.String("err", err.Error()))
+		slog.Error("error to get user login")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -84,5 +85,5 @@ func (h *WithdrawalHandler) Add(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	w.WriteHeader(http.StatusOK)
 }

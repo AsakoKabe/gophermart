@@ -75,9 +75,7 @@ func (s *Service) GetBalance(ctx context.Context, userLogin string) (float64, er
 
 	var balance float64
 	for _, order := range *ordersAccrual {
-		if order.Status == models.PROCESSED {
-			balance += order.Accrual
-		}
+		balance += order.Accrual
 	}
 
 	return balance, nil

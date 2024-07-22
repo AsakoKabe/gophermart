@@ -2,9 +2,10 @@ package withdrawal
 
 import (
 	"context"
+	"log/slog"
+
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
-	"log/slog"
 )
 
 type Service struct {
