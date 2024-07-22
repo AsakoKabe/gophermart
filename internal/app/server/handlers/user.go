@@ -93,3 +93,44 @@ func (h *UserHandler) makeToken(login string) string {
 	_, tokenString, _ := h.tokenAuth.Encode(map[string]interface{}{"login": login})
 	return tokenString
 }
+
+func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
+	_, claims, _ := jwtauth.FromContext(r.Context())
+	userLogin, ok := claims[tokenKey].(string)
+	if !ok {
+		slog.Error("error to get user login")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	balance, err := h.userService.GetBalance(r.Context(), userLogin)
+	if err != nil {
+		slog.Error(
+			"error to get balance",
+			slog.String("userLogin", userLogin),
+			slog.String("err", err.Error()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	withdrawal, err := h.userService.GetSumWithdrawal(r.Context(), userLogin)
+	if err != nil {
+		slog.Error(
+			"error to get sum withdrawal",
+			slog.String("userLogin", userLogin),
+			slog.String("err", err.Error()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res := balanceResponse{Current: balance - withdrawal, Withdrawn: withdrawal}
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		slog.Error("error to create response get balance", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusOK)
+
+}

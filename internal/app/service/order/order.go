@@ -39,7 +39,6 @@ var ErrNotRegisterOrderAccrual = errors.New("order isnt registered in accrual")
 var ErrUnexpectedStatusCode = errors.New("unexpected status code in accrual")
 
 const accrualURI = "/api/orders/"
-const accrualNEWStatus = "NEW"
 
 func (s *Service) Add(ctx context.Context, numOrder string, userLogin string) error {
 	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
@@ -99,15 +98,21 @@ func (s *Service) GetOrders(ctx context.Context, userLogin string) (*[]models.Or
 }
 
 type AccrualResponse struct {
-	Order   string  `json:"order"`
-	Status  string  `json:"status"`
-	Accrual float64 `json:"accrual"`
+	Order   string             `json:"order"`
+	Status  models.OrderStatus `json:"status"`
+	Accrual float64            `json:"accrual"`
 }
 
-func (s *Service) AddAccrualToOrders(
-	_ context.Context,
-	orders *[]models.Order,
+func (s *Service) GetOrdersWithAccrual(
+	ctx context.Context,
+	userLogin string,
 ) (*[]models.OrderWithAccrual, error) {
+	orders, err := s.GetOrders(ctx, userLogin)
+	if err != nil {
+		slog.Error("error to get orders", slog.String("err", err.Error()))
+		return nil, err
+	}
+
 	var ordersAccrual []models.OrderWithAccrual
 
 	for _, order := range *orders {
@@ -156,7 +161,7 @@ func (s *Service) sendAccrualResponse(orderNum string) (*AccrualResponse, error)
 	case http.StatusUnprocessableEntity:
 		return nil, ErrTooManyRequestsAccrual
 	case http.StatusNoContent:
-		accrualResponse.Status = accrualNEWStatus
+		accrualResponse.Status = models.NEW
 		return &accrualResponse, nil
 	case http.StatusInternalServerError:
 		return nil, err

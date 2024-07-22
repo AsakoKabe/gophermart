@@ -65,14 +65,7 @@ func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orders, err := h.orderService.GetOrders(r.Context(), userLogin)
-	if err != nil {
-		slog.Error("error to get orders", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	ordersAccrual, err := h.orderService.AddAccrualToOrders(r.Context(), orders)
+	ordersAccrual, err := h.orderService.GetOrdersWithAccrual(r.Context(), userLogin)
 	if err != nil {
 		slog.Error("error to get orders with accrual", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)

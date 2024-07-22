@@ -9,4 +9,6 @@ import (
 type UserService interface {
 	Add(ctx context.Context, user *models.User) error
 	IsValidUser(ctx context.Context, user *models.User) (bool, error)
+	GetBalance(ctx context.Context, userLogin string) (float64, error)
+	GetSumWithdrawal(ctx context.Context, userLogin string) (float64, error)
 }

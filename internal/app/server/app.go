@@ -42,11 +42,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, ErrCreateDBPoll
 	}
 
-	err = connection.RunMigrations(cfg.DatabaseURI)
-	if err != nil {
-		slog.Error("error to migrate db", slog.String("err", err.Error()))
-		return nil, err
-	}
+	//err = connection.RunMigrations(cfg.DatabaseURI)
+	//if err != nil {
+	//	slog.Error("error to migrate db", slog.String("err", err.Error()))
+	//	return nil, err
+	//}
 
 	storages, err := storage.NewPostgresStorages(pool)
 	if err != nil {
@@ -111,6 +111,11 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) {
 
 	userHandler := handlers.NewUserHandler(a.services.UserService, a.tokenAuth)
 	orderHandler := handlers.NewOrderHandler(a.services.OrderService)
+	withdrawalHandler := handlers.NewWithdrawalHandler(
+		a.services.WithdrawalService,
+		a.services.OrderService,
+		a.services.UserService,
+	)
 	router.Route("/api/user/", func(r chi.Router) {
 		r.Post("/register", userHandler.Register)
 		r.Post("/login", userHandler.Login)
@@ -120,6 +125,8 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) {
 			r.Use(jwtauth.Authenticator(a.tokenAuth))
 			r.Post("/orders", orderHandler.Add)
 			r.Get("/orders", orderHandler.Get)
+			r.Post("/balance", userHandler.GetBalance)
+			r.Post("/balance/withdraw", withdrawalHandler.Add)
 		})
 	})
 }

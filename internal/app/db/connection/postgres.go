@@ -29,7 +29,7 @@ func RunMigrations(dsn string) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = m.Steps(2)
+	err = m.Up()
 	if err != nil {
 		return err
 	}

@@ -7,15 +7,17 @@ import (
 )
 
 type Storages struct {
-	PingStorage  PingStorage
-	UserStorage  UserStorage
-	OrderStorage OrderStorage
+	PingStorage       PingStorage
+	UserStorage       UserStorage
+	OrderStorage      OrderStorage
+	WithdrawalStorage WithdrawalStorage
 }
 
 func NewPostgresStorages(db *sql.DB) (*Storages, error) {
 	return &Storages{
-		PingStorage:  postgres.NewPingStorage(db),
-		UserStorage:  postgres.NewUserStorage(db),
-		OrderStorage: postgres.NewOrderStorage(db),
+		PingStorage:       postgres.NewPingStorage(db),
+		UserStorage:       postgres.NewUserStorage(db),
+		OrderStorage:      postgres.NewOrderStorage(db),
+		WithdrawalStorage: postgres.NewWithdrawalStorage(db),
 	}, nil
 }
