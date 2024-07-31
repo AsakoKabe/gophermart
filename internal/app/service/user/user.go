@@ -62,37 +62,56 @@ func isEqual(existedUser *models.User, user *models.User) bool {
 	return existedUser.Login == user.Login && existedUser.Password == user.Password
 }
 
-func (s *Service) GetBalance(ctx context.Context, userLogin string) (float64, error) {
-	ordersAccrual, err := s.orderService.GetOrdersWithAccrual(ctx, userLogin)
+func (s *Service) GetAccruals(ctx context.Context, userLogin string) (float64, error) {
+	accruals, err := s.userStorage.GetAccruals(ctx, userLogin)
 	if err != nil {
 		slog.Error(
-			"error to get orders with accrual",
-			slog.String("userLogin", userLogin),
-			slog.String("err", err.Error()),
+			"error to get accruals from storage", slog.String("err", err.Error()),
+			slog.String("user login", userLogin),
 		)
 		return 0, err
 	}
 
-	var balance float64
-	for _, order := range *ordersAccrual {
-		balance += order.Accrual
+	return accruals, nil
+}
+
+func (s *Service) GetWithdrawal(ctx context.Context, userLogin string) (float64, error) {
+	withdrawal, err := s.userStorage.GetWithdrawal(ctx, userLogin)
+	if err != nil {
+		slog.Error(
+			"error to get withdrawal from storage", slog.String("err", err.Error()),
+			slog.String("user login", userLogin),
+		)
+		return 0, err
+	}
+
+	return withdrawal, nil
+}
+
+func (s *Service) GetBalance(ctx context.Context, userLogin string) (float64, error) {
+	balance, err := s.userStorage.GetBalance(ctx, userLogin)
+	if err != nil {
+		slog.Error(
+			"error to get balance from storage", slog.String("err", err.Error()),
+			slog.String("user login", userLogin),
+		)
+		return 0, err
 	}
 
 	return balance, nil
 }
 
-func (s *Service) GetSumWithdrawal(ctx context.Context, userLogin string) (float64, error) {
-	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
+func (s *Service) GetAccrualsAndWithdrawal(ctx context.Context, userLogin string) (
+	float64, float64, error,
+) {
+	accruals, withdrawal, err := s.userStorage.GetAccrualsAndWithdrawal(ctx, userLogin)
 	if err != nil {
-		slog.Error("error to get user", slog.String("err", err.Error()))
-		return 0, err
+		slog.Error(
+			"error to get accruals, withdrawal from storage", slog.String("err", err.Error()),
+			slog.String("user login", userLogin),
+		)
+		return 0, 0, err
 	}
 
-	withdrawal, err := s.withdrawalStorage.GetSum(ctx, user.ID)
-	if err != nil {
-		slog.Error("error to get sum withdrawal")
-		return 0, err
-	}
-
-	return withdrawal, nil
+	return accruals, withdrawal, nil
 }

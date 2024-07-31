@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/http"
-
-	"github.com/go-resty/resty/v2"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
 	"github.com/AsakoKabe/gophermart/internal/app/db/storage"
@@ -15,31 +12,21 @@ import (
 type Service struct {
 	orderStorage storage.OrderStorage
 	userStorage  storage.UserStorage
-	httpClient   *resty.Client
-	accrualURI   string
 }
 
 func NewService(
 	orderStorage storage.OrderStorage,
 	userStorage storage.UserStorage,
-	accrualURI string,
 ) *Service {
 	return &Service{
 		orderStorage: orderStorage,
 		userStorage:  userStorage,
-		httpClient:   resty.New(),
-		accrualURI:   accrualURI,
 	}
 }
 
 var ErrAlreadyAddedOtherUser = errors.New("order already added other user")
 var ErrAlreadyAdded = errors.New("order already added")
 var ErrBadFormat = errors.New("bad format num order")
-var ErrTooManyRequestsAccrual = errors.New("too many request in accrual service")
-var ErrNotRegisterOrderAccrual = errors.New("order isnt registered in accrual")
-var ErrUnexpectedStatusCode = errors.New("unexpected status code in accrual")
-
-const accrualURI = "/api/orders/"
 
 func (s *Service) Add(ctx context.Context, numOrder string, userLogin string) error {
 	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
@@ -80,7 +67,7 @@ func (s *Service) Add(ctx context.Context, numOrder string, userLogin string) er
 	return nil
 }
 
-func (s *Service) GetOrders(ctx context.Context, userLogin string) (*[]models.Order, error) {
+func (s *Service) GetOrders(ctx context.Context, userLogin string) ([]*models.Order, error) {
 	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
 	if err != nil {
 		slog.Error("error to get user for get orders",
@@ -96,82 +83,6 @@ func (s *Service) GetOrders(ctx context.Context, userLogin string) (*[]models.Or
 		return nil, err
 	}
 	return orders, nil
-}
-
-type AccrualResponse struct {
-	Order   string             `json:"order"`
-	Status  models.OrderStatus `json:"status"`
-	Accrual float64            `json:"accrual"`
-}
-
-func (s *Service) GetOrdersWithAccrual(
-	ctx context.Context,
-	userLogin string,
-) (*[]models.OrderWithAccrual, error) {
-	orders, err := s.GetOrders(ctx, userLogin)
-	if err != nil {
-		slog.Error("error to get orders", slog.String("err", err.Error()))
-		return nil, err
-	}
-
-	var ordersAccrual []models.OrderWithAccrual
-
-	for _, order := range *orders {
-		var errResponse error
-		accrualResponse, errResponse := s.sendAccrualResponse(order.Num)
-		if errResponse != nil {
-			switch {
-			case errors.Is(errResponse, ErrTooManyRequestsAccrual):
-				slog.Error(
-					errResponse.Error(),
-					slog.String("orderNum", order.Num),
-				)
-				continue
-			default:
-				slog.Error(
-					"error to get accrualResponse for order",
-					slog.String("order num", order.Num),
-					slog.String("err", errResponse.Error()),
-				)
-				continue
-			}
-		}
-
-		ordersAccrual = append(ordersAccrual, models.OrderWithAccrual{
-			Number:     order.Num,
-			Status:     accrualResponse.Status,
-			Accrual:    accrualResponse.Accrual,
-			UploadedAt: order.UploadedAt,
-		})
-	}
-
-	return &ordersAccrual, nil
-}
-
-func (s *Service) sendAccrualResponse(orderNum string) (*AccrualResponse, error) {
-	var accrualResponse AccrualResponse
-	resp, err := s.httpClient.R().
-		SetResult(&accrualResponse).
-		ForceContentType("application/json").
-		Get(s.accrualURI + accrualURI + orderNum)
-
-	if err != nil {
-		return nil, err
-	}
-
-	switch resp.StatusCode() {
-	case http.StatusUnprocessableEntity:
-		return nil, ErrTooManyRequestsAccrual
-	case http.StatusNoContent:
-		accrualResponse.Status = models.NEW
-		return &accrualResponse, nil
-	case http.StatusInternalServerError:
-		return nil, err
-	case http.StatusOK:
-		return &accrualResponse, nil
-	}
-
-	return nil, ErrUnexpectedStatusCode
 }
 
 func luhnAlgorithm(cardNumber string) bool {

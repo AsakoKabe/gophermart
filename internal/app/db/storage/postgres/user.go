@@ -20,6 +20,11 @@ func NewUserStorage(db *sql.DB) *UserStorage {
 
 const insertUser = "insert into users (login, password) values ($1, $2)"
 const selectUser = "select * from users where login = $1"
+const updateAccruals = "update users set accruals=accruals+$1 where id = $2"
+const selectAccrualsByLogin = "select accruals from users where login = $1"
+const selectWithdrawalByLogin = "select withdrawal from users where login = $1"
+const selectBalanceByLogin = "select (accruals-withdrawal) from users where login = $1"
+const selectAccrualsAndWithdrawal = "select accruals, withdrawal from users where login = $1"
 
 var ErrUserNotExist = errors.New("user not exist")
 
@@ -33,21 +38,15 @@ func (u *UserStorage) CreateUser(ctx context.Context, user *models.User) error {
 }
 
 func (u *UserStorage) GetUserByLogin(ctx context.Context, login string) (*models.User, error) {
-	rows, err := u.db.QueryContext(
+	row := u.db.QueryRowContext(
 		ctx,
 		selectUser,
 		login,
 	)
-	if err != nil {
-		slog.Error("error select user by login", slog.String("err", err.Error()))
-		return nil, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
+	user, err := u.parseUser(row)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotExist
-	}
-	user, err := u.parseUser(rows)
-	if err != nil {
+	} else if err != nil {
 		slog.Error("error to parse user", slog.String("err", err.Error()))
 		return nil, err
 	}
@@ -55,12 +54,83 @@ func (u *UserStorage) GetUserByLogin(ctx context.Context, login string) (*models
 	return user, nil
 }
 
-func (u *UserStorage) parseUser(rows *sql.Rows) (*models.User, error) {
+func (u *UserStorage) parseUser(rows *sql.Row) (*models.User, error) {
 	var user models.User
-	if err := rows.Scan(&user.ID, &user.Login, &user.Password); err != nil {
+	if err := rows.Scan(
+		&user.ID, &user.Login, &user.Password, &user.Accruals, &user.Withdrawal,
+	); err != nil {
 		slog.Error("error parse user from db", slog.String("err", err.Error()))
 		return nil, err
 	}
 
 	return &user, nil
+}
+
+func (u *UserStorage) UpdateAccruals(ctx context.Context, userID string, accrual float64) error {
+	_, err := u.db.ExecContext(ctx, updateAccruals, accrual, userID)
+	if err != nil {
+		return fmt.Errorf("unable to update user accruals: %w", err)
+	}
+
+	return nil
+}
+
+func (u *UserStorage) GetAccruals(ctx context.Context, userLogin string) (float64, error) {
+	var accruals float64
+	err := u.db.QueryRowContext(
+		ctx,
+		selectAccrualsByLogin,
+		userLogin,
+	).Scan(&accruals)
+
+	if err != nil {
+		slog.Error("error to select accruals", slog.String("err", err.Error()))
+		return 0, err
+	}
+	return accruals, nil
+}
+
+func (u *UserStorage) GetWithdrawal(ctx context.Context, userLogin string) (float64, error) {
+	var withdrawal float64
+	err := u.db.QueryRowContext(
+		ctx,
+		selectWithdrawalByLogin,
+		userLogin,
+	).Scan(&withdrawal)
+
+	if err != nil {
+		slog.Error("error to select withdrawal", slog.String("err", err.Error()))
+		return 0, err
+	}
+	return withdrawal, nil
+}
+
+func (u *UserStorage) GetBalance(ctx context.Context, userLogin string) (float64, error) {
+	var balance float64
+	err := u.db.QueryRowContext(
+		ctx,
+		selectBalanceByLogin,
+		userLogin,
+	).Scan(&balance)
+	if err != nil {
+		slog.Error("error to select balance", slog.String("err", err.Error()))
+		return 0, err
+	}
+	return balance, nil
+}
+
+func (u *UserStorage) GetAccrualsAndWithdrawal(ctx context.Context, userLogin string) (
+	float64, float64, error,
+) {
+	var accruals, withdrawal float64
+	err := u.db.QueryRowContext(
+		ctx,
+		selectAccrualsAndWithdrawal,
+		userLogin,
+	).Scan(&accruals, &withdrawal)
+	if err != nil {
+		slog.Error("error to select accruals, withdrawal", slog.String("err", err.Error()))
+		return 0, 0, err
+	}
+	return accruals, withdrawal, nil
 }

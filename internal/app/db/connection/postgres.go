@@ -2,7 +2,6 @@ package connection
 
 import (
 	"database/sql"
-	"log"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db"
 	"github.com/golang-migrate/migrate/v4"
@@ -28,7 +27,7 @@ func RunMigrations(dsn string) error {
 	}
 	m, err := migrate.NewWithSourceInstance("iofs", fs, dsn)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	err = m.Up()
 	if err != nil {

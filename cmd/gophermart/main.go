@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err.Error())
 	}
-	defer app.CloseDBPool()
+	defer app.Stop()
 
 	if err = app.Run(cfg); err != nil {
 		log.Panicf("%s", err.Error())

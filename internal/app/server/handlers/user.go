@@ -104,10 +104,10 @@ func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balance, err := h.userService.GetBalance(r.Context(), userLogin)
+	accruals, withdrawal, err := h.userService.GetAccrualsAndWithdrawal(r.Context(), userLogin)
 	if err != nil {
 		slog.Error(
-			"error to get balance",
+			"error to get accruals and withdrawal",
 			slog.String("userLogin", userLogin),
 			slog.String("err", err.Error()),
 		)
@@ -115,19 +115,9 @@ func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	withdrawal, err := h.userService.GetSumWithdrawal(r.Context(), userLogin)
-	if err != nil {
-		slog.Error(
-			"error to get sum withdrawal",
-			slog.String("userLogin", userLogin),
-			slog.String("err", err.Error()),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	w.Header().Set("Content-Type", "application/json")
 
-	res := balanceResponse{Current: balance - withdrawal, Withdrawn: withdrawal}
+	res := balanceResponse{Current: accruals - withdrawal, Withdrawn: withdrawal}
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil {
 		slog.Error("error to create response get balance", slog.String("err", err.Error()))

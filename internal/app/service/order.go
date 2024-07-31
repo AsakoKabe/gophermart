@@ -8,6 +8,5 @@ import (
 
 type OrderService interface {
 	Add(ctx context.Context, numOrder string, userLogin string) error
-	GetOrders(ctx context.Context, userLogin string) (*[]models.Order, error)
-	GetOrdersWithAccrual(ctx context.Context, userLogin string) (*[]models.OrderWithAccrual, error)
+	GetOrders(ctx context.Context, userLogin string) ([]*models.Order, error)
 }

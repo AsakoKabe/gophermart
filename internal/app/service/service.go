@@ -20,10 +20,11 @@ func NewServices(storages *storage.Storages, cfg *config.Config) *Services {
 	orderService := order.NewService(
 		storages.OrderStorage,
 		storages.UserStorage,
-		cfg.AccrualSystemAddress,
 	)
 	return &Services{
-		UserService:       user.NewService(storages.UserStorage, orderService, storages.WithdrawalStorage),
+		UserService: user.NewService(
+			storages.UserStorage, orderService, storages.WithdrawalStorage,
+		),
 		PingService:       ping.NewService(storages.PingStorage),
 		OrderService:      orderService,
 		WithdrawalService: withdrawal.NewService(storages.WithdrawalStorage, storages.UserStorage),

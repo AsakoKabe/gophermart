@@ -40,7 +40,7 @@ func (s *Service) Add(ctx context.Context, orderNum string, sum float64, userLog
 	return nil
 }
 
-func (s *Service) GetAll(ctx context.Context, userLogin string) (*[]models.Withdrawal, error) {
+func (s *Service) GetAll(ctx context.Context, userLogin string) ([]*models.Withdrawal, error) {
 	user, err := s.userStorage.GetUserByLogin(ctx, userLogin)
 	if err != nil {
 		slog.Error("error to get user for get all withdrawal",

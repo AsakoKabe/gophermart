@@ -30,6 +30,8 @@ type App struct {
 
 	httpServer *http.Server
 	tokenAuth  *jwtauth.JWTAuth
+
+	verifier *service.Verifier
 }
 
 func NewApp(cfg *config.Config) (*App, error) {
@@ -58,6 +60,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 		dbPool:    pool,
 		services:  service.NewServices(storages, cfg),
 		tokenAuth: jwtauth.New("HS256", []byte(cfg.AuthSecret), nil),
+		verifier: service.NewVerifier(
+			storages.OrderStorage, storages.UserStorage, cfg.AccrualSystemAddress,
+		),
 	}, nil
 }
 
@@ -84,6 +89,8 @@ func (a *App) Run(cfg *config.Config) error {
 		}
 	}()
 
+	a.verifier.Start()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, os.Interrupt)
 
@@ -95,7 +102,9 @@ func (a *App) Run(cfg *config.Config) error {
 	return a.httpServer.Shutdown(ctx)
 }
 
-func (a *App) CloseDBPool() {
+func (a *App) Stop() {
+	a.verifier.Stop()
+
 	if a.dbPool == nil {
 		return
 	}
@@ -116,18 +125,22 @@ func (a *App) registerHTTPEndpoint(router *chi.Mux) {
 		a.services.OrderService,
 		a.services.UserService,
 	)
-	router.Route("/api/user/", func(r chi.Router) {
-		r.Post("/register", userHandler.Register)
-		r.Post("/login", userHandler.Login)
+	router.Route(
+		"/api/user/", func(r chi.Router) {
+			r.Post("/register", userHandler.Register)
+			r.Post("/login", userHandler.Login)
 
-		r.Group(func(r chi.Router) {
-			r.Use(jwtauth.Verifier(a.tokenAuth))
-			r.Use(jwtauth.Authenticator(a.tokenAuth))
-			r.Post("/orders", orderHandler.Add)
-			r.Get("/orders", orderHandler.Get)
-			r.Get("/balance", userHandler.GetBalance)
-			r.Post("/balance/withdraw", withdrawalHandler.Add)
-			r.Get("/withdrawals", withdrawalHandler.Get)
-		})
-	})
+			r.Group(
+				func(r chi.Router) {
+					r.Use(jwtauth.Verifier(a.tokenAuth))
+					r.Use(jwtauth.Authenticator(a.tokenAuth))
+					r.Post("/orders", orderHandler.Add)
+					r.Get("/orders", orderHandler.Get)
+					r.Get("/balance", userHandler.GetBalance)
+					r.Post("/balance/withdraw", withdrawalHandler.Add)
+					r.Get("/withdrawals", withdrawalHandler.Get)
+				},
+			)
+		},
+	)
 }

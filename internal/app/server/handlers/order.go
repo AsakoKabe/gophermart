@@ -66,19 +66,18 @@ func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ordersAccrual, err := h.orderService.GetOrdersWithAccrual(r.Context(), userLogin)
+	orders, err := h.orderService.GetOrders(r.Context(), userLogin)
 	if err != nil {
 		slog.Error("error to get orders with accrual", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if len(*ordersAccrual) == 0 {
+	if len(orders) == 0 {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-
-	err = json.NewEncoder(w).Encode(ordersAccrual)
+	err = json.NewEncoder(w).Encode(orders)
 	if err != nil {
 		slog.Error("error to create response get orders", slog.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
