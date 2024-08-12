@@ -13,6 +13,8 @@ type OrderStorage interface {
 	GetOrdersWithStatuses(ctx context.Context, statuses []models.OrderStatus) (
 		[]*models.Order, error,
 	)
-	UpdateOrderStatus(ctx context.Context, newStatus models.OrderStatus, orderNum string) error
-	UpdateOrderAccrual(ctx context.Context, orderID string, accrual float64) error
+	UpdateAccrualAndStatus(
+		ctx context.Context, orderID string, accrual float64, orderStatus models.OrderStatus,
+		userID string,
+	) error
 }

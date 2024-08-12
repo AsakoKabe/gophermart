@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
+	"github.com/lib/pq"
 )
 
 type OrderStorage struct {
@@ -26,9 +26,10 @@ type sqlRow interface {
 const insertOrder = "insert into orders (num, user_id) values ($1, $2)"
 const selectOrderByNum = "select id, num, status, accrual, user_id, trim('\"' from to_json(uploaded_at)::text) from orders where num = $1"
 const selectOrdersByUserID = "select id, num, status, accrual, user_id, trim('\"' from to_json(uploaded_at)::text) from orders where user_id = $1 order by uploaded_at"
-const selectOrdersWithStatuses = "select id, num, status, accrual, user_id, trim('\"' from to_json(uploaded_at)::text) from orders where status in (%s)"
-const updateOrderStatus = "update orders SET status = $1 where num = $2"
+const selectOrdersWithStatuses = "select id, num, status, accrual, user_id, trim('\"' from to_json(uploaded_at)::text) from orders where status  = ANY($1)"
+const updateOrderStatus = "update orders SET status = $1 where id = $2"
 const updateOrderAccrual = "update orders set accrual=$1 where id=$2"
+const updateUserAccrual = "update users set accruals=accruals+$1 where id = $2"
 
 func (s *OrderStorage) Add(ctx context.Context, order *models.Order) error {
 	_, err := s.db.ExecContext(ctx, insertOrder, order.Num, order.UserID)
@@ -100,22 +101,16 @@ func (s *OrderStorage) GetOrdersByUserIDSortedByUpdatedAt(
 func (s *OrderStorage) GetOrdersWithStatuses(
 	ctx context.Context, statuses []models.OrderStatus,
 ) ([]*models.Order, error) {
-	params := make([]string, 0, len(statuses))
-	var vals []any
+	var vals pq.StringArray
 
 	for i := range statuses {
-		params = append(params, fmt.Sprintf("$%d", i+1))
-		vals = append(vals, statuses[i])
+		vals = append(vals, string(statuses[i]))
 	}
-	query := fmt.Sprintf(
-		selectOrdersWithStatuses,
-		strings.Join(params, ", "),
-	)
 
 	rows, err := s.db.QueryContext(
 		ctx,
-		query,
-		vals...,
+		selectOrdersWithStatuses,
+		vals,
 	)
 	if err != nil {
 		slog.Error(
@@ -142,23 +137,33 @@ func (s *OrderStorage) GetOrdersWithStatuses(
 	return orders, nil
 }
 
-func (s *OrderStorage) UpdateOrderStatus(
-	ctx context.Context, newStatus models.OrderStatus, orderNum string,
+func (s *OrderStorage) UpdateAccrualAndStatus(
+	ctx context.Context, orderID string, accrual float64, newStatus models.OrderStatus,
+	userID string,
 ) error {
-	_, err := s.db.ExecContext(ctx, updateOrderStatus, newStatus, orderNum)
+	tx, err := s.db.Begin()
 	if err != nil {
+		slog.Error("error to create transaction", slog.String("err", err.Error()))
+		return err
+	}
+	defer tx.Commit()
+
+	_, err = tx.ExecContext(ctx, updateOrderStatus, newStatus, orderID)
+	if err != nil {
+		tx.Rollback()
 		return fmt.Errorf("unable to update order status: %w", err)
 	}
 
-	return nil
-}
-
-func (s *OrderStorage) UpdateOrderAccrual(
-	ctx context.Context, orderID string, accrual float64,
-) error {
-	_, err := s.db.ExecContext(ctx, updateOrderAccrual, accrual, orderID)
+	_, err = tx.ExecContext(ctx, updateOrderAccrual, accrual, orderID)
 	if err != nil {
+		tx.Rollback()
 		return fmt.Errorf("unable to update order accrual: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, updateUserAccrual, accrual, userID)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("unable to update user accruals: %w", err)
 	}
 
 	return nil

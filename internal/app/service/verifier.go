@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/AsakoKabe/gophermart/internal/app/db/models"
@@ -13,9 +14,10 @@ import (
 )
 
 type AccrualResponse struct {
-	Order   string             `json:"order"`
-	Status  models.OrderStatus `json:"status"`
-	Accrual float64            `json:"accrual"`
+	Order      string             `json:"order"`
+	Status     models.OrderStatus `json:"status"`
+	Accrual    float64            `json:"accrual"`
+	RetryAfter int
 }
 
 var ErrTooManyRequestsAccrual = errors.New("too many request in accrual service")
@@ -64,43 +66,16 @@ func (v *Verifier) update() {
 		case <-v.ticker.C:
 			unprocessedOrders := v.getUnprocessedOrders()
 			for _, order := range unprocessedOrders {
-				v.updateOrderStatus(order)
-				v.updateAccruals(order)
+				v.updateAccrualsAndStatus(order)
 			}
 		}
 	}
 }
 
-func (v *Verifier) updateOrderStatus(order *models.Order) {
-	err := v.orderStorage.UpdateOrderStatus(
-		context.Background(), order.Status, order.Num,
-	)
-	if err != nil {
-		slog.Error(
-			"error to update order status",
-			slog.String("err", err.Error()),
-			slog.String("orderNum", order.Num),
-			slog.Any("newStatus", order.Status),
-		)
-	}
-}
-
-func (v *Verifier) updateAccruals(order *models.Order) {
+func (v *Verifier) updateAccrualsAndStatus(order *models.Order) {
 	if order.Status == models.PROCESSED {
-		err := v.userStorage.UpdateAccruals(
-			context.Background(), order.UserID, order.Accrual,
-		)
-		if err != nil {
-			slog.Error(
-				"error to update user accruals",
-				slog.String("err", err.Error()),
-				slog.String("user id", order.UserID),
-				slog.Any("accrual", order.Accrual),
-			)
-			return
-		}
-		err = v.orderStorage.UpdateOrderAccrual(
-			context.Background(), order.ID, order.Accrual,
+		err := v.orderStorage.UpdateAccrualAndStatus(
+			context.Background(), order.ID, order.Accrual, order.Status, order.UserID,
 		)
 		if err != nil {
 			slog.Error(
@@ -127,24 +102,31 @@ func (v *Verifier) getUnprocessedOrders() []*models.Order {
 	var unprocessedOrders []*models.Order
 
 	for _, order := range orders {
+		var accrualResponse *AccrualResponse
 		var errResponse error
-		accrualResponse, errResponse := v.sendAccrualRequest(order.Num)
-		if errResponse != nil {
-			switch {
-			case errors.Is(errResponse, ErrTooManyRequestsAccrual):
-				slog.Error(
-					errResponse.Error(),
-					slog.String("orderNum", order.Num),
-				)
-				continue
-			default:
-				slog.Error(
-					"error to get accrualResponse for order",
-					slog.String("order num", order.Num),
-					slog.String("err", errResponse.Error()),
-				)
-				continue
+		for {
+			accrualResponse, errResponse = v.sendAccrualRequest(order.Num)
+			if errResponse != nil {
+				switch {
+				case errors.Is(errResponse, ErrTooManyRequestsAccrual):
+					slog.Error(
+						errResponse.Error(),
+						slog.String("orderNum", order.Num),
+					)
+					time.Sleep(time.Duration(accrualResponse.RetryAfter))
+					continue
+				default:
+					slog.Error(
+						"error to get accrualResponse for order",
+						slog.String("order num", order.Num),
+						slog.String("err", errResponse.Error()),
+					)
+				}
 			}
+			break
+		}
+		if errResponse != nil {
+			continue
 		}
 
 		unprocessedOrders = append(
@@ -175,7 +157,13 @@ func (v *Verifier) sendAccrualRequest(orderNum string) (*AccrualResponse, error)
 
 	switch resp.StatusCode() {
 	case http.StatusTooManyRequests:
-		return nil, ErrTooManyRequestsAccrual
+		retry, err := strconv.Atoi(resp.Header().Get("Retry-After"))
+		if err != nil {
+			slog.Error("error to parse header Retry-After")
+			return nil, err
+		}
+		accrualResponse.RetryAfter = retry
+		return &accrualResponse, ErrTooManyRequestsAccrual
 	case http.StatusNoContent:
 		accrualResponse.Status = models.NEW
 		return &accrualResponse, nil

@@ -20,7 +20,6 @@ func NewUserStorage(db *sql.DB) *UserStorage {
 
 const insertUser = "insert into users (login, password) values ($1, $2)"
 const selectUser = "select * from users where login = $1"
-const updateAccruals = "update users set accruals=accruals+$1 where id = $2"
 const selectAccrualsByLogin = "select accruals from users where login = $1"
 const selectWithdrawalByLogin = "select withdrawal from users where login = $1"
 const selectBalanceByLogin = "select (accruals-withdrawal) from users where login = $1"
@@ -64,15 +63,6 @@ func (u *UserStorage) parseUser(rows *sql.Row) (*models.User, error) {
 	}
 
 	return &user, nil
-}
-
-func (u *UserStorage) UpdateAccruals(ctx context.Context, userID string, accrual float64) error {
-	_, err := u.db.ExecContext(ctx, updateAccruals, accrual, userID)
-	if err != nil {
-		return fmt.Errorf("unable to update user accruals: %w", err)
-	}
-
-	return nil
 }
 
 func (u *UserStorage) GetAccruals(ctx context.Context, userLogin string) (float64, error) {
